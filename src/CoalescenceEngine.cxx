@@ -38,6 +38,8 @@ void CoalescenceEngine::precompute(double rMax_fm, double qMax_GeV,
 
     const double rMin = 0., rMax = rMax_fm;
     const double RpairMin = 0., RpairMax = rMax_fm; // range of pair separation to consider
+    const double isospinFactor = 3./16.;
+    const double spinFactor = 5./16. + 3./16. + 1./16. + 3./16.; // considering excited states
     
     for (int iq = 1; iq <= nBinsQ; ++iq) {
         const double q = fProbMap->GetYaxis()->GetBinCenter(iq);
@@ -54,16 +56,13 @@ void CoalescenceEngine::precompute(double rMax_fm, double qMax_GeV,
 
                 const TVector3 r_vec(rIter, 0., 0.);
                 double D = fWigner->evaluate(q_vec, r_vec);
-
-                for (double RpairIter = RpairMin; RpairIter <= RpairMax; RpairIter += (RpairMax - RpairMin) / nBinsR) {
                 
-                    double H_pHe3 = pairDist.evaluate(rIter, RpairIter);
-                    sumP += D * H_pHe3;
-                    nSamples++;
-                }
+                double H_pHe3 = pairDist.evaluateIntegrateGlobal(rIter);
+                sumP +=  D * H_pHe3 * 4 * M_PI * rIter * rIter; // weight by spherical volume element
+                nSamples++;
             }
             
-            double P = sumP / nSamples;
+            double P = spinFactor * isospinFactor * sumP / nSamples;
             fProbMap->SetBinContent(ir0, iq, P);
         }
     }

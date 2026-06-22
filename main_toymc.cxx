@@ -7,6 +7,7 @@
 #include "TH1D.h"
 #include "TH2D.h"
 #include "TStopwatch.h"
+#include "TString.h"
 
 #include <iostream>
 #include <memory>
@@ -52,7 +53,6 @@ std::pair<SourceSize, SourceSize> makeSourceSizes(int centrality) {
 int main(int argc, char** argv) {
 
     TStopwatch timer;
-    constexpr double kLi4Radius_fm = 2.0; // fm, from ALICE measurement of Li4 rms radius
 
     if (argc < 5) { printUsage(argv[0]); return 1; }
 
@@ -76,16 +76,6 @@ int main(int argc, char** argv) {
               << " Seed         : " << seed        << "\n"
               << "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
 
-    // ── Source sizes and Wigner density ──────────────────────────────────────
-    auto [srcProton, srcHe3] = makeSourceSizes(centrality);
-
-    constexpr double rRms_fm = kLi4Radius_fm;
-    const double     d_fm    = rRms_fm * std::sqrt(2./3.);
-    auto wigner = std::make_shared<GaussianWigner>(d_fm);
-
-    std::cout << " Li4 Gaussian width: d = " << d_fm << " fm\n"
-              << "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
-
     // ── Build ToyMC engine ────────────────────────────────────────────────────
     ToyMCEngine::Config cfg;
     cfg.rootFile     = spectraFile;
@@ -98,24 +88,41 @@ int main(int argc, char** argv) {
     cfg.seed         = seed;
     cfg.nThreads     = 10;
 
-    ToyMCEngine engine(srcProton, srcHe3, wigner, cfg);
-
-    // ── Run ───────────────────────────────────────────────────────────────────
-    timer.Start();    
-    ToyMCEngine::Histograms h = engine.run(nEvents);
-    timer.Stop();
-    std::cout << "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-              << " Finished in " << timer.RealTime() << " seconds\n"
-              << " CPU time: " << timer.CpuTime() << " seconds\n"
-              << "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
-
     // ── Write output ──────────────────────────────────────────────────────────
     TFile outFile(outputFile.c_str(), "RECREATE");
     if (outFile.IsZombie()) {
         std::cerr << "ERROR: cannot create " << outputFile << "\n";
         return 1;
     }
-    h.write();
+
+    // ── Source sizes and Wigner density ──────────────────────────────────────
+    auto [srcProton, srcHe3] = makeSourceSizes(centrality);
+
+    timer.Start();
+    for (const float rRms_fm : {2.0f, 3.0f, 4.0f}) {
+    
+        const double     d_fm    = rRms_fm * std::sqrt(2./3.);
+        auto wigner = std::make_shared<GaussianWigner>(d_fm);
+        std::cout << " Li4 Gaussian width: d = " << d_fm << " fm\n"
+                << "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+
+        ToyMCEngine engine(srcProton, srcHe3, wigner, cfg);
+
+        // ── Run ───────────────────────────────────────────────────────────────────
+        ToyMCEngine::Histograms h = engine.run(nEvents);
+        
+        auto outDir = Form("r%.1f_fm", rRms_fm);
+        outFile.mkdir(outDir);
+        outFile.cd(outDir);
+        h.write();
+    }
+    timer.Stop();
+    std::cout << "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+              << " Finished in " << timer.RealTime() << " seconds\n"
+              << " CPU time: " << timer.CpuTime() << " seconds\n"
+              << "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+
+    
     outFile.Close();
 
     std::cout << " Results written to: " << outputFile << "\n";

@@ -28,8 +28,8 @@ if hHe3Stat and hHe3Syst:
         bin_width = hHe3.GetBinWidth(i)
         err_stat = hHe3Stat.GetBinError(i)
         err_syst = hHe3Syst.GetBinError(i)
-        hHe3.SetBinContent(i, hHe3.GetBinContent(i) / bin_width)  # convert to density
-        hHe3.SetBinError(i, (err_stat**2 + err_syst**2)**0.5/bin_width)  # combine errors in quadrature
+        hHe3.SetBinContent(i, hHe3.GetBinContent(i) * bin_width)  # convert to density
+        hHe3.SetBinError(i, (err_stat**2 + err_syst**2)**0.5 * bin_width)  # combine errors in quadrature
 
 hHe3.SetName("hHe3_0_10")
 hHe3.SetTitle("He3 p_{T} spectrum, 0-10% centrality, #sqrt{s_{NN}} = 5.02 TeV")
@@ -55,6 +55,7 @@ if not hP_05 or not hP_510:
 hProton = hP_05.Clone("hProton_0_10")
 hProton.Add(hP_510)
 hProton.Scale(0.5)   # arithmetic mean → representative 0-10% spectrum
+hProtonNoReweight = hProton.Clone("hProton_0_10_no_reweight")  # for comparison, if needed
 
 # Transfer stat errors (averaged in quadrature / linearly — linear here)
 if hP_05_stat and hP_510_stat:
@@ -69,18 +70,24 @@ if hP_05_stat and hP_510_stat:
         err_syst = 0.5 * (e1_syst + e2_syst)  # average syst error
         
         error = (err_stat**2 + err_syst**2)**0.5  # combine in quadrature
-        hProton.SetBinContent(i, hProton.GetBinContent(i) / bin_width)  # convert to density
-        hProton.SetBinError(i, error / bin_width)  # average stat error
+        hProton.SetBinContent(i, hProton.GetBinContent(i) * bin_width)  # convert to density
+        hProton.SetBinError(i, error * bin_width)  # average stat error
+        
+        hProtonNoReweight.SetBinError(i, error)
 
-hProton.SetTitle("Proton p_{T} spectrum, 0-10% centrality, #sqrt{s_{NN}} = 5.02 TeV")
-hProton.GetXaxis().SetTitle("p_{T} (GeV/c)")
-hProton.GetYaxis().SetTitle("(1/N_{ev}) d^{2}N / dp_{T}dy [(GeV/c)^{-1}]")
+for hist in [hProton, hProtonNoReweight]:
+    hist.SetTitle("Proton p_{T} spectrum, 0-10% centrality, #sqrt{s_{NN}} = 5.02 TeV")
+    hist.GetXaxis().SetTitle("p_{T} (GeV/c)")
+    hist.GetYaxis().SetTitle("(1/N_{ev}) d^{2}N / dp_{T}dy [(GeV/c)^{-1}]")
+
+
 
 # ── save to output file ───────────────────────────────────────────────────────
 OUT = "spectra_0_10.root"
 fout = ROOT.TFile(OUT, "RECREATE")
 hHe3.Write()
 hProton.Write()
+hProtonNoReweight.Write()
 fout.Close()
 print(f"Saved '{hHe3.GetName()}' and '{hProton.GetName()}' to {OUT}")
 

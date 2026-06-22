@@ -97,6 +97,8 @@ public:
 
     void setProbMap(const TH2D* map) { fProbMap.reset(); fSharedProbMap = map; }
 
+    bool isProbMapComputed() const { return fProbMap || fSharedProbMap; }
+
 private:
 
     // Sample positions for all particles in a list

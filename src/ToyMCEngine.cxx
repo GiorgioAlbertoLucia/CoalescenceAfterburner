@@ -122,7 +122,9 @@ ToyMCEngine::Histograms ToyMCEngine::run(long long nEvents) {
  
     // ── Ensure probability map is precomputed before spawning threads ─────────
     // precompute() is idempotent — safe to call even if already done.
-    fCoalEngine->precompute();
+    if (!fCoalEngine->isProbMapComputed()) {
+        fCoalEngine->precompute();
+    }
     const TH2D* sharedProbMap = fCoalEngine->coalescenceProbability();
  
     // ── Divide events across threads ─────────────────────────────────────────
@@ -208,13 +210,13 @@ void ToyMCEngine::workerRun(long long      evStart,
  
     // ── Event loop ────────────────────────────────────────────────────────────
     const long long nLocal   = evEnd - evStart;
-    const long long printEvery = std::max(1LL, nLocal / 100);
+    const long long printEvery = std::max(1LL, nLocal / 5);
  
     for (long long iEv = evStart; iEv < evEnd; ++iEv) {
         if ((iEv - evStart) % printEvery == 0)
             std::cout << " [Thread " << threadId << "] Event "
                       << (iEv - evStart) << " / " << nLocal
-                      << "  (" << (100 * (iEv - evStart) / nLocal) << "%)\n";
+                      << "  (" << (5 * (iEv - evStart) / nLocal) << "%)\n";
  
         const int nP   = multModel.drawNProtons();
         const int nHe3 = multModel.drawNHe3();

@@ -91,6 +91,19 @@ public:
         return out;
     }
 
+    void sampleMomentum(TVector3& mom) const {
+        const double pT  = fHPt->GetRandom();
+        const double phi = fRng.Uniform(0., 2. * M_PI);
+        const double y   = fRng.Uniform(-fYMax, fYMax);
+
+        const double mT  = std::sqrt(fMass * fMass + pT * pT);
+        const double px  = pT * std::cos(phi);
+        const double py  = pT * std::sin(phi);
+        const double pz  = mT * std::sinh(y);
+
+        mom.SetXYZ(px, py, pz);
+    }
+
     void setSeed(unsigned int seed) { fRng.SetSeed(seed); }
 
     int    pdg()  const { return fPdg;  }

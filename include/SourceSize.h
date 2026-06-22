@@ -6,6 +6,9 @@
 #include <stdexcept>
 #include <string>
 
+#include "TRandom3.h"
+#include "TVector3.h"
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Preset centrality classes for PbPb at sqrt(sNN) = 5.02 TeV
 //
@@ -63,9 +66,11 @@ public:
 
     // species label is for bookkeeping only
     SourceSize(const SourceSizeParameters::CentralityClass& centrality,
-               const double mT_ref_GeV = 1.0)
+               const double mT_ref_GeV = 1.0,
+               const int seed = 42)
         : fCentrality(centrality),
-          fMTRef(mT_ref_GeV)
+          fMTRef(mT_ref_GeV),
+          fRng(seed)
     {
         computeR(mT_ref_GeV, centrality);
     }
@@ -74,6 +79,12 @@ public:
     // Returns r0(mT) in fm
     double r0() const {
         return fR;
+    }
+
+    void samplePosition(TVector3& pos) const {
+        pos.SetXYZ(fRng.Gaus(0., fR),
+                   fRng.Gaus(0., fR),
+                   fRng.Gaus(0., fR));
     }
 
     double mtRef() const { return fMTRef; }
@@ -95,6 +106,10 @@ public:
         return std::sqrt(r0a_fm * r0a_fm + r0b_fm * r0b_fm);
     }
 
+    void setR0(double r0_fm) {
+        fR = r0_fm;
+    }
+
 
 private:
 
@@ -110,6 +125,7 @@ private:
     double fR;      // [fm]
     SourceSizeParameters::CentralityClass fCentrality;
     double fMTRef; // [GeV/c^2]
+    mutable TRandom3 fRng; // mutable: sampling is logically const
 };
 
 class PairSpaceDistribution {
@@ -132,6 +148,16 @@ public:
         // Gaussian distribution in relative distance r with width R_pair
         return 1/(2* M_PI * fR0Pair * fR0Pair) * std::exp(-(r * r + R_pair * R_pair) / (4. * fR0Pair * fR0Pair));
     }
+
+    /**
+     * Evaluate the pair space distribution integrated over the pair source size R_pair, for a given relative distance r.
+     * This is useful for computing the overall probability of coalescence without explicitly sampling R_pair
+     */
+    double evaluateIntegrateGlobal(const double r) const {
+        // Gaussian distribution in relative distance r with width R_pair
+        return std::exp(-(r * r) / (4. * fR0Pair * fR0Pair));
+    }
+
 
 private:
     SourceSize fSrcA;
