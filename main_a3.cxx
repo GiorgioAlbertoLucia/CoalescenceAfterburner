@@ -1,4 +1,4 @@
-#include "ToyMCEngineA4.h"
+#include "ToyMCEngineA3.h"
 #include "SourceSize.h"
 
 #include "TROOT.h"
@@ -55,13 +55,13 @@ int main(int argc, char** argv) {
     SourceSize srcSize(centClass, mTproton_GeV, seedSourceSize);
     srcSize.setR0(radius_PbPb_Run3_0_10_fm);
 
-    const float radiusParameter = radius * std::sqrt(2/3. * 4./3. * 2.);
+    const float radiusParameter = radius * std::sqrt(2.);
 
     auto outputDir = output->mkdir(Form("d%.1f", radius));
     std::cout << " Running with rRms = " << radius << " fm\n";
     std::cout << " \tradius parameter (d) = " << radiusParameter << " fm\n";
 
-    ToyMCEngineA4::Config cfg;
+    ToyMCEngineA3::Config cfg;
     cfg.rootFile       = spectraFile;
     cfg.hNameNucleon   = hName;
     cfg.rRms_fm        = radiusParameter;
@@ -69,11 +69,11 @@ int main(int argc, char** argv) {
     cfg.intCfg.nEvents = nSamples;
     cfg.intCfg.seed     = seed;
     cfg.intCfg.yMax     = cfg.yMax;
-    cfg.intCfg.nThreads  = 20;
+    cfg.intCfg.nThreads  = 10;
 
     TStopwatch stopwatch;
 
-    ToyMCEngineA4 engine(srcSize, cfg);
+    ToyMCEngineA3 engine(srcSize, cfg);
     stopwatch.Start();
     engine.run(outputDir);
     stopwatch.Stop();

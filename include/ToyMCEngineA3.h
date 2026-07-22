@@ -1,7 +1,7 @@
-#ifndef TOYMCENGINEA4_H
-#define TOYMCENGINEA4_H
+#ifndef TOYMCENGINEA3_H
+#define TOYMCENGINEA3_H
 
-#include "IntegratorA4.h"
+#include "IntegratorA3.h"
 #include "MultiplicityModel.h"
 #include "SourceSize.h"
 #include "WignerDensityA.h"
@@ -15,16 +15,16 @@
 #include <stdexcept>
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ToyMCEngineA4
+// ToyMCEngineA3
 //
 // Thin driver that wires together SourceSize, WignerDensityA, and
-// IntegratorA4. Responsible for:
+// IntegratorA3. Responsible for:
 //   - Loading the input nucleon pT histogram from a ROOT file
-//   - Constructing and running IntegratorA4
+//   - Constructing and running IntegratorA3
 //   - Writing output to a ROOT file
 // ─────────────────────────────────────────────────────────────────────────────
 
-class ToyMCEngineA4 {
+class ToyMCEngineA3 {
 public:
 
     struct Config {
@@ -36,10 +36,10 @@ public:
 
         MultiplicityMode multMode = MultiplicityMode::Poissonian;
 
-        IntegratorA4::Config intCfg; // passed through to IntegratorA4
+        IntegratorA3::Config intCfg; // passed through to IntegratorA3
     };
 
-    ToyMCEngineA4(const SourceSize& srcSize,
+    ToyMCEngineA3(const SourceSize& srcSize,
                   const Config&     cfg);
 
     // Run integration and write results to outputFile
@@ -56,4 +56,4 @@ private:
     Config                         fCfg;
 };
 
-#endif // TOYMCENGINEA4_H
+#endif // TOYMCENGINEA3_H

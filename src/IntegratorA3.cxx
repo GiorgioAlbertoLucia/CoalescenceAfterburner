@@ -1,21 +1,20 @@
 #include "CMFrameBooster.h"
-#include "CoalescenceEngineLi4.h"
-#include "CoalescenceEngineHe4.h"
+#include "CoalescenceEngineHe3.h"
 #include "Event.h"
-#include "IntegratorA4.h"
+#include "IntegratorA3.h"
 #include "MultiplicityModel.h"
 
 #include <cmath>
 #include <iostream>
 #include <stdexcept>
 
-#include "TH1D.h"
+#include "TH1F.h"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constructor
 // ─────────────────────────────────────────────────────────────────────────────
 
-IntegratorA4::IntegratorA4(const SourceSize&               srcSize,
+IntegratorA3::IntegratorA3(const SourceSize&               srcSize,
                             std::shared_ptr<WignerDensityA> wigner,
                             const TH1*                      hPtNucleon,
                             const Config&                   cfg)
@@ -26,9 +25,9 @@ IntegratorA4::IntegratorA4(const SourceSize&               srcSize,
     , fQAHistograms()
 {
     if (!fWigner)
-        throw std::invalid_argument("IntegratorA4: WignerDensityA must not be null");
+        throw std::invalid_argument("IntegratorA3: WignerDensityA must not be null");
     if (!hPtNucleon)
-        throw std::invalid_argument("IntegratorA4: hPtNucleon must not be null");
+        throw std::invalid_argument("IntegratorA3: hPtNucleon must not be null");
     fWigner1 = std::make_shared<SingleGaussianWigner>(fWigner->getD());
 
     constexpr double kMassNucleon = 0.938272; // GeV/c^2
@@ -40,26 +39,26 @@ IntegratorA4::IntegratorA4(const SourceSize&               srcSize,
     fCfg.meanNProtons = hPtNucleon->Integral() * 2. * cfg.yMax;
 
     // ── Book histograms ───────────────────────────────────────────────────────
-    fHLi4Pt = std::make_unique<TH1D>(
-        "hLi4Pt_A4",
-        "^{4}Li p_{T};p_{T} (GeV/c);d^{2}N/(dydp_{T})",
+    fHNucleusPt = std::make_unique<TH1D>(
+        "hNucleusPt_A3",
+        "^{3}He p_{T};p_{T} (GeV/c);d^{2}N/(dydp_{T})",
         50, 0., 12.);
-    fHLi4Pt->SetDirectory(nullptr);
+    fHNucleusPt->SetDirectory(nullptr);
 
     fHNucleonPt = std::make_unique<TH1D>(
-        "hNucleonPt_A4",
+        "hNucleonPt_A3",
         "Sampled nucleon p_{T};p_{T} (GeV/c);Counts",
         50, 0., 5.);
     fHNucleonPt->SetDirectory(nullptr);
 
     fHSourceDist = std::make_unique<TH1D>(
-        "hSourceDist_A4",
+        "hSourceDist_A3",
         "Inter-nucleon distance;r (fm);Counts",
         100, 0., 20.);
     fHSourceDist->SetDirectory(nullptr);
 
     fHJacobiKvsR = std::make_unique<TH2D>(
-        "hJacobiKvsR_A4",
+        "hJacobiKvsR_A3",
         "Jacobi |k_{j}| vs |r_{j}|;|k| (GeV/c);|r| (fm)",
         100, 0., 2., 100, 0., 20.);
     fHJacobiKvsR->SetDirectory(nullptr);
@@ -79,18 +78,18 @@ IntegratorA4::IntegratorA4(const SourceSize&               srcSize,
     }
 
     fHNucleusYield = new TH1D(
-        "hNucleusYield_A4",
-        "^{4}He yield;Yield;Counts",
+        "hNucleusYield_A3",
+        "^{3}He yield;Yield;Counts",
         1, 0., 1.);
     fHNucleusYield->SetDirectory(nullptr);
     fHNucleusYieldUncertainty = new TH1D(
-        "hNucleusYieldUncertainty_A4",
-        "^{4}He yield uncertainty;Yield;Counts",
+        "hNucleusYieldUncertainty_A3",
+        "^{3}He yield uncertainty;Yield;Counts",
         1, 0., 1.);
     fHNucleusYieldUncertainty->SetDirectory(nullptr);
 }
 
-void IntegratorA4::writeQAHistograms() const {
+void IntegratorA3::writeQAHistograms() const {
     fQAHistograms.fHPtNucleon->Write();
     fQAHistograms.fHYNucleon->Write();
     fQAHistograms.fHPhiNucleon->Write();
@@ -106,7 +105,7 @@ void IntegratorA4::writeQAHistograms() const {
 // run
 // ─────────────────────────────────────────────────────────────────────────────
 
-void IntegratorA4::run(long long nEvents) {
+void IntegratorA3::run(long long nEvents) {
  
     const int nThreads = fCfg.nThreads;
  
@@ -134,7 +133,7 @@ void IntegratorA4::run(long long nEvents) {
  
     for (int t = 0; t < nThreads; ++t) {
         const long long evEnd = evStart + evPerThread + (t < remainder ? 1 : 0);
-        workers.emplace_back(&IntegratorA4::workerRun, this,
+        workers.emplace_back(&IntegratorA3::workerRun, this,
                              evStart, evEnd, t,
                              protonClones[t].get(),
                              std::ref(threadResults[t]),
@@ -144,7 +143,6 @@ void IntegratorA4::run(long long nEvents) {
     }
  
     for (auto& w : workers) w.join();
-    std::cout << "All " << nThreads << " workers joined.\n";
  
     // ── Merge per-thread histograms into thread 0's set ──────────────────────
     float totalYield = 0.f, totalEvents = 0.f;
@@ -158,8 +156,8 @@ void IntegratorA4::run(long long nEvents) {
     const double yield = totalYield / totalEvents;
     double yieldUncertainty = 0.0;
     fHNucleusYieldDistribution = new TH1D(
-        "hNucleusYieldDistribution_A4",
-        "^{4}He yield distribution;Yield;Counts",
+        "hNucleusYieldDistribution_A3",
+        "^{3}He yield distribution;Yield;Counts",
         1000, yield - 10 * yield, yield + 10 * yield);
     for (int t = 0; t < nThreads; ++t) {
         for (const auto& w : threadYields[t]) {
@@ -188,7 +186,7 @@ void IntegratorA4::run(long long nEvents) {
 
 }
 
-void IntegratorA4::workerRun(long long      evStart,
+void IntegratorA3::workerRun(long long      evStart,
                              long long      evEnd,
                              int            threadId,
                              const TH1*     hPtProton,
@@ -201,16 +199,16 @@ void IntegratorA4::workerRun(long long      evStart,
     const long long nEvents   = fCfg.nEvents;
     const int       A          = fCfg.A;
 
-    // SA for Li4 (all excited states)
-    constexpr double SA = 3./16.;
+    // SA for Nucleus (all excited states)
+    constexpr double SA = 1./12.;
     constexpr double nucleonMass_GeV = 0.938272; // GeV/c^2
 
     MultiplicityModel multModel(fCfg.meanNProtons, 0.,
                                  fCfg.multMode,    fCfg.seed + 2);
     MomentumSampler samplerP  (PDG::kProton, nucleonMass_GeV,
                                 hPtProton, fCfg.yMax, fCfg.seed + 3);
-    //CoalescenceEngineLi4 engine(fSrcSize, wignerDensity().clone(), fCfg.seed + 4);
-    CoalescenceEngineHe4 engine(fSrcSize, wignerDensity().clone(), fCfg.seed + 4, threadId);
+    //CoalescenceEngineNucleus engine(fSrcSize, wignerDensity().clone(), fCfg.seed + 4);
+    CoalescenceEngineHe3 engine(fSrcSize, wignerDensity().clone(), fCfg.seed + 4, threadId);
     engine.setWignerMap(fHWignerKvsR.get()); // <-- add this line
 
     float yield = 0.f;
@@ -232,7 +230,7 @@ void IntegratorA4::workerRun(long long      evStart,
         for (int i = 0; i < nProtons; ++i) {
             protons[i] = samplerP.sample();
             if (i == 0) {
-                protons[i].pos.SetXYZ(0., 0., 0.);
+                protons[i].pos.SetXYZ(0., 0., 0.); // First proton at origin
             } else {
                 fSrcSize.samplePosition(protons[i].pos);
             }
@@ -257,10 +255,10 @@ void IntegratorA4::workerRun(long long      evStart,
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// li4pT
+// NucleuspT
 // ─────────────────────────────────────────────────────────────────────────────
 
-double IntegratorA4::li4pT(const std::vector<TVector3>& momenta) {
+double IntegratorA3::NucleuspT(const std::vector<TVector3>& momenta) {
     double px = 0., py = 0.;
     for (const auto& p : momenta) {
         px += p.X();
@@ -273,8 +271,8 @@ double IntegratorA4::li4pT(const std::vector<TVector3>& momenta) {
 // write
 // ─────────────────────────────────────────────────────────────────────────────
 
-void IntegratorA4::write() const {
-    fHLi4Pt     ->Write();
+void IntegratorA3::write() const {
+    fHNucleusPt ->Write();
     fHNucleonPt ->Write();
     fHSourceDist->Write();
     fHJacobiKvsR->Write();

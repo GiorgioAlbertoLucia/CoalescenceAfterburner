@@ -45,11 +45,10 @@ public:
         const double q2_fm = q_GeV.Mag2() / (hbarc * hbarc); // [fm^-2]
         const double r2_fm = r_fm.Mag2();                     // [fm^2]
 
-        return std::exp( -(fD4 * q2_fm / 4. + r2_fm) / fD2 );
+        return 8 * std::exp( -(fD4 * q2_fm + r2_fm) / fD2 );
     }
 
     double getD()  const { return fD;  }
-    double getRms() const { return fD * std::sqrt(1.5); } // r_rms = sqrt(3/2)*d
 
     std::shared_ptr<WignerDensity> clone() const override {
         return std::make_shared<SingleGaussianWigner>(fD);
@@ -108,8 +107,13 @@ public:
         return std::pow(fWigner1.maxValue(), A - 1);
     }
 
-    double getD()   const { return fWigner1.getD();   }
-    double getRms() const { return fWigner1.getRms(); }
+    double getD()   const { return fWigner1.getD(); }
+
+    const SingleGaussianWigner& getWigner1() const { return fWigner1; }
+
+    std::shared_ptr<WignerDensityA> clone() const {
+        return std::make_shared<WignerDensityA>(fWigner1.getD());
+    }
 
 private:
     SingleGaussianWigner fWigner1; // two-body Gaussian Wigner density
