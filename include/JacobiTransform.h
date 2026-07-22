@@ -72,6 +72,35 @@ public:
         return result;
     }
 
+    // Transform A lab-frame 3-vectors to all A Jacobi coordinates.
+    // Returns a vector of A TVector3s: index 0 is the (normalised) CoM,
+    // indices 1..A-1 are the relative Jacobi coordinates.
+    static std::vector<Particle> transform(const std::vector<Particle>& particles) {
+        const int A = static_cast<int>(particles.size());
+        if (A < 2)
+            throw std::invalid_argument(
+                "JacobiTransform::transform: need at least 2 vectors");
+        
+        // do the transformation on the positions and momenta separately
+        std::vector<TVector3> positions(A), momenta(A);
+        for (int n = 0; n < A; ++n) {
+            positions[n] = particles[n].pos;
+            momenta[n] = particles[n].mom.Vect();
+        }
+
+        auto r_jacobi = transform(positions);
+        auto k_jacobi = transform(momenta);
+
+        std::vector<Particle> result(A);
+        for (int n = 0; n < A; ++n) {
+            result[n].pos = r_jacobi[n];
+            result[n].mom.SetVect(k_jacobi[n]);
+            const float mass = particles[n].mom.M();
+            result[n].mom.SetE(std::sqrt(k_jacobi[n].Mag2() + mass * mass));
+        }
+        return result;
+    }
+
     // Returns only the A-1 relative Jacobi coordinates (rows 1..A-1).
     // This is what the Wigner density depends on.
     static std::vector<TVector3> relative(const std::vector<TVector3>& vecs) {
