@@ -48,8 +48,13 @@ set(SOURCES
     src/EventReader.cxx
     src/CoalescenceEngine.cxx
     src/ToyMCEngine.cxx
+    src/CoalescenceEngineLi4.cxx
+    src/CoalescenceEngineHe4.cxx
+    src/CoalescenceEngineHe3.cxx
     src/IntegratorA4.cxx
+    src/IntegratorA3.cxx
     src/ToyMCEngineA4.cxx
+    src/ToyMCEngineA3.cxx
 )
 
 # ── Include directories ───────────────────────────────────────────────────────
@@ -111,8 +116,15 @@ target_link_libraries(li4_toymc
 # ── A=4 integrator executable ─────────────────────────────────────────────────
 add_executable(li4_a4 main_a4.cxx)
 
+
 target_include_directories(li4_a4 PRIVATE ${HEADERS_DIR} ${ROOT_INCLUDE_DIRS})
 target_link_libraries(li4_a4 PRIVATE li4_core)
+
+# ── A=3 integrator executable ─────────────────────────────────────────────────
+add_executable(he3_a3 main_a3.cxx)
+
+target_include_directories(he3_a3 PRIVATE ${HEADERS_DIR} ${ROOT_INCLUDE_DIRS})
+target_link_libraries(he3_a3 PRIVATE li4_core)
 
 # ── Install ───────────────────────────────────────────────────────────────────
 install(TARGETS li4_coalescence DESTINATION bin)
