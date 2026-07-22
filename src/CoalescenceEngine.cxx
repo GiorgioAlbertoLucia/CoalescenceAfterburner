@@ -38,7 +38,7 @@ void CoalescenceEngine::precompute(double rMax_fm, double qMax_GeV,
 
     const double rMin = 0., rMax = rMax_fm;
     const double RpairMin = 0., RpairMax = rMax_fm; // range of pair separation to consider
-    const double isospinFactor = 3./16.;
+    const double isospinFactor = 1./64.;
     const double spinFactor = 5./16. + 3./16. + 1./16. + 3./16.; // considering excited states
     
     for (int iq = 1; iq <= nBinsQ; ++iq) {
