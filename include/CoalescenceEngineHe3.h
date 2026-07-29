@@ -91,7 +91,8 @@ private:
     std::shared_ptr<SingleGaussianWigner>   fWigner1;
     const TH2D*                             fWignerMap{nullptr}; // non-owning lookup table
     mutable TRandom3                        fRng;
-    int                                    fThreadIndex{0}; // for QA histogram naming
+    int                                     fThreadIndex{0}; // for QA histogram naming
+    const double                            fMass = 2.80839160743; // [GeV/c^2] He3 mass
 
     // QA histograms
     TH1D* fHPtNucleon{nullptr};

@@ -195,18 +195,13 @@ void IntegratorA3::workerRun(long long      evStart,
                              QAHistograms& qaClone
                             ) const
 {
-
-    const long long nEvents   = fCfg.nEvents;
-    const int       A          = fCfg.A;
-
-    // SA for Nucleus (all excited states)
-    constexpr double SA = 1./12.;
+    const double yMax = 1.; // nucleon rapidity range for sampling
     constexpr double nucleonMass_GeV = 0.938272; // GeV/c^2
 
     MultiplicityModel multModel(fCfg.meanNProtons, 0.,
                                  fCfg.multMode,    fCfg.seed + 2);
     MomentumSampler samplerP  (PDG::kProton, nucleonMass_GeV,
-                                hPtProton, fCfg.yMax, fCfg.seed + 3);
+                                hPtProton, yMax, fCfg.seed + 3);
     //CoalescenceEngineNucleus engine(fSrcSize, wignerDensity().clone(), fCfg.seed + 4);
     CoalescenceEngineHe3 engine(fSrcSize, wignerDensity().clone(), fCfg.seed + 4, threadId);
     engine.setWignerMap(fHWignerKvsR.get()); // <-- add this line
@@ -229,11 +224,7 @@ void IntegratorA3::workerRun(long long      evStart,
         std::vector<Particle> protons(nProtons), neutrons(nNeutrons);
         for (int i = 0; i < nProtons; ++i) {
             protons[i] = samplerP.sample();
-            if (i == 0) {
-                protons[i].pos.SetXYZ(0., 0., 0.); // First proton at origin
-            } else {
                 fSrcSize.samplePosition(protons[i].pos);
-            }
         }
         for (int i = 0; i < nNeutrons; ++i) {
             neutrons[i] = samplerP.sample();

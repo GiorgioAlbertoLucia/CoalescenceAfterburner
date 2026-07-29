@@ -145,6 +145,14 @@ float CoalescenceEngineHe3::processEvent(const Event& ev) const {
                 }
 
                 std::vector<Particle> nucleons{p1, p2, n1};
+                TLorentzVector pTot;
+                for (const auto& p : nucleons)
+                    pTot += p.mom;
+                pTot.SetE(std::sqrt(pTot.P() * pTot.P() + fMass * fMass));
+                const double rapidity = pTot.Rapidity();
+                if (std::abs(rapidity) > 0.5)
+                    continue; // skip if nucleus rapidity is outside [-0.5, 0.5]
+
                 std::vector<Particle> boostedNucleons = CMFrameBooster::boostParticles(nucleons);
 
                 // Transform to Jacobi coordinates

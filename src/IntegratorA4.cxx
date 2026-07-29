@@ -197,18 +197,13 @@ void IntegratorA4::workerRun(long long      evStart,
                              QAHistograms& qaClone
                             ) const
 {
-
-    const long long nEvents   = fCfg.nEvents;
-    const int       A          = fCfg.A;
-
-    // SA for Li4 (all excited states)
-    constexpr double SA = 3./16.;
+    const double yMax = 1.; // nucleon rapidity range for sampling
     constexpr double nucleonMass_GeV = 0.938272; // GeV/c^2
 
     MultiplicityModel multModel(fCfg.meanNProtons, 0.,
                                  fCfg.multMode,    fCfg.seed + 2);
     MomentumSampler samplerP  (PDG::kProton, nucleonMass_GeV,
-                                hPtProton, fCfg.yMax, fCfg.seed + 3);
+                                hPtProton, yMax, fCfg.seed + 3);
     //CoalescenceEngineLi4 engine(fSrcSize, wignerDensity().clone(), fCfg.seed + 4);
     CoalescenceEngineHe4 engine(fSrcSize, wignerDensity().clone(), fCfg.seed + 4, threadId);
     engine.setWignerMap(fHWignerKvsR.get()); // <-- add this line
