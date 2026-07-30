@@ -1,234 +1,123 @@
 #include "CoalescenceEngine.h"
 
-#include <cmath>
-#include <stdexcept>
+#include "TRandom3.h"
+#include "TFile.h"
+#include "TString.h"
+#include "TLorentzVector.h"
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Constructor
-// ─────────────────────────────────────────────────────────────────────────────
+#include <thread>
 
-CoalescenceEngine::CoalescenceEngine(const SourceSize&              srcP,
-                                     const SourceSize&              srcHe3,
-                                     std::shared_ptr<WignerDensity> wigner,
-                                     unsigned int                   seed)
-    : fSrcProton(srcP)
-    , fSrcHe3(srcHe3)
-    , fWigner(std::move(wigner))
-    , fRng(seed + 2)                        // different seed for rejection
-    , fPairDist(srcP, srcHe3)               // pair space distribution for the two sources
+CoalescenceEngine::CoalescenceEngine(Config& config)
+    : fConfig(config)
 {
-    if (!fWigner)
-        throw std::invalid_argument(
-            "CoalescenceEngine: WignerDensity must not be null");
+
+    TFile* file = TFile::Open(config.inputPtHistogramFile.c_str());
+    if (!file) {
+        throw std::runtime_error("Failed to open input pT histogram file");
+    }
+    fHPt = static_cast<TH1D*>(file->Get(config.inputPtHistogramName.c_str()));
+    if (!fHPt) {
+        std::string availableHists;
+        TIter next(file->GetListOfKeys());
+        while (TObject* obj = next()) {
+            availableHists += obj->GetName();
+            availableHists += " ";
+        }
+        throw std::runtime_error("Failed to get input pT histogram: " + config.inputPtHistogramName +"\n"
+                                 "Available histograms in file: " + availableHists);
+    }
+    fHPt = static_cast<TH1D*>(fHPt->Clone());
+    fHPt->SetDirectory(nullptr);
+    file->Close();
+
+    fAverageNucleons = fHPt->Integral() * (fYMax * 2.0);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// precompute
-// ─────────────────────────────────────────────────────────────────────────────
-
-void CoalescenceEngine::precompute(double rMax_fm, double qMax_GeV,
-                                   int nBinsR,     int nBinsQ)
+bool CoalescenceEngine::checkNucleusWithinRapidity(const std::vector<Particle>& nucleons, double yMin, double yMax) const
 {
-    fProbMap = std::make_unique<TH2D>(
-        "hCoalescenceProb",
-        "Coalescence probability;r (fm);q (GeV/c)",
-        nBinsR, 0., rMax_fm,
-        nBinsQ, 0., qMax_GeV);
-    fProbMap->SetDirectory(nullptr);
+    TLorentzVector pTot;
+    for (const auto& p : nucleons) {
+        pTot += p.mom;
+    }
+    pTot.SetE(std::sqrt(fMass * fMass + pTot.Vect().Mag2()));
+    double yNucleus = pTot.Rapidity();
+    return (yNucleus >= yMin && yNucleus <= yMax);
+}
 
-    const double rMin = 0., rMax = rMax_fm;
-    const double RpairMin = 0., RpairMax = rMax_fm; // range of pair separation to consider
-    const double isospinFactor = 1./64.;
-    const double spinFactor = 5./16. + 3./16. + 1./16. + 3./16.; // considering excited states
+void CoalescenceEngine::run(BookKeeping& bookKeeping) {
     
-    for (int iq = 1; iq <= nBinsQ; ++iq) {
-        const double q = fProbMap->GetYaxis()->GetBinCenter(iq);
-        const TVector3 q_vec(q, 0., 0.);
-
-        for (int ir0 = 1; ir0 <= nBinsR; ++ir0) {
-            const double r0 = fProbMap->GetXaxis()->GetBinCenter(ir0);
-            PairSpaceDistribution pairDist(r0);
-
-            int nSamples = 0;
-            double sumP = 0.;
-
-            for (double rIter = rMin; rIter <= rMax; rIter += (rMax - rMin) / nBinsR) {
-
-                const TVector3 r_vec(rIter, 0., 0.);
-                double D = fWigner->evaluate(q_vec, r_vec);
-                
-                double H_pHe3 = pairDist.evaluateIntegrateGlobal(rIter);
-                sumP +=  D * H_pHe3 * 4 * M_PI * rIter * rIter; // weight by spherical volume element
-                nSamples++;
-            }
-            
-            double P = spinFactor * isospinFactor * sumP / nSamples;
-            fProbMap->SetBinContent(ir0, iq, P);
-        }
-    }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// processEvent
-// ─────────────────────────────────────────────────────────────────────────────
+    const int nThreads = fConfig.nThreads;
+    const int nEvents = fConfig.nEvents;
+    const long long evPerThread = nEvents / nThreads;
+    const long long remainder   = nEvents % nThreads;
  
-CoalescenceResult CoalescenceEngine::processEvent(const Event& ev) {
-    CoalescenceResult result;
+    std::vector<std::thread>                workers;
+    std::vector<std::pair<float, float>>    threadResults(nThreads);
  
-    if (ev.nProtons() == 0 || ev.nHe3() == 0) return result;
+    long long evStart = 0;
  
-    // ── 1. Copy particles so we can assign positions ─────────────────────────
-    std::vector<Particle> protons = ev.protons;
-    std::vector<Particle> he3s    = ev.he3s;
- 
-    // ── 3. Loop over all He3-proton pairs ────────────────────────────────────
-    // Each particle can only coalesce once (greedy first-match).
-    // Track which particles have already been used.
-    std::vector<bool> protonUsed(protons.size(), false);
-    std::vector<bool> he3Used   (he3s.size(),    false);
- 
-    for (std::size_t iHe3 = 0; iHe3 < he3s.size(); ++iHe3) {
-        if (he3Used[iHe3]) continue;
- 
-        for (std::size_t iP = 0; iP < protons.size(); ++iP) {
-            if (protonUsed[iP]) continue;
- 
-            const Particle& he3    = he3s[iHe3];
-            const Particle& proton = protons[iP];
- 
-            // ── 3a. Boost to PRF, get q and r ────────────────────────────────
-            TVector3 q_GeV;
-            boostToPRF(he3, proton, q_GeV);
- 
-            // ── 3b. Store pair diagnostics (all pairs, before rejection) ─────
-            const double qMag = q_GeV.Mag();
-            const double rMag = fPairDist.pairR0();
-            result.pairs.push_back({qMag, rMag});
- 
-            // ── 3c. Look up precomputed coalescence probability ───────────────
-            // Prefer the shared (non-owning) map injected by the main thread;
-            // fall back to the owned map, then to direct Wigner evaluation.
-            const TH2D* map = fSharedProbMap ? fSharedProbMap : fProbMap.get();
-            double P = 0.;
-            if (map) {
-                const double rMax = map->GetXaxis()->GetBinCenter(map->GetNbinsX());
-                const double qMax = map->GetYaxis()->GetBinCenter(map->GetNbinsY());
-                if (rMag < rMax && qMag < qMax)
-                    P = map->Interpolate(rMag, qMag);
-            } else {
-                P = fWigner->evaluate(q_GeV, TVector3(rMag,0,0)) / fWigner->maxValue();
-            }
- 
-            // ── 3d. Rejection sampling ────────────────────────────────────────
-            const double u = fRng.Uniform(0., 1.);
-            if (u < P) {
-                result.li4s.push_back(makeLi4(he3, proton));
-                protonUsed[iP]   = true;
-                he3Used[iHe3]    = true;
-                break; // move to next He3
-            }
-        }
+    // Pre-clone histograms on the main thread — one clone per worker.
+    // This avoids concurrent TH1::Clone() calls which are not thread-safe
+    // due to gROOT registration.
+    std::vector<std::vector<double>> threadYields(nThreads);
+    std::vector<BookKeeping> bookKeepingClones(nThreads);
+    std::vector<std::unique_ptr<TH1D>> hPtNucleonClones(nThreads);
+    for (int t = 0; t < nThreads; ++t) {
+        bookKeepingClones[t] = BookKeeping{};
+        hPtNucleonClones[t] = std::unique_ptr<TH1D>(static_cast<TH1D*>(fHPt->Clone(Form("hInputPtNucleon_%d", t))));
     }
  
-    return result;
+    for (int t = 0; t < nThreads; ++t) {
+        const long long evEnd = evStart + evPerThread + (t < remainder ? 1 : 0);
+        workers.emplace_back(&CoalescenceEngine::workerRun, this, evStart, evEnd, t, hPtNucleonClones[t].get(), 
+                             std::ref(threadResults[t]), std::ref(threadYields[t]), std::ref(bookKeepingClones[t]));
+        evStart = evEnd;
+    }
+ 
+    for (auto& w : workers) w.join();
+    for (int t = 1; t < nThreads; ++t) {
+        bookKeepingClones[0].fHPtNucleon->Add(bookKeepingClones[t].fHPtNucleon);
+        bookKeepingClones[0].fHYNucleon->Add(bookKeepingClones[t].fHYNucleon);
+        bookKeepingClones[0].fHPhiNucleon->Add(bookKeepingClones[t].fHPhiNucleon);
+        bookKeepingClones[0].fHPtNucleus->Add(bookKeepingClones[t].fHPtNucleus);
+        bookKeepingClones[0].fHYNucleus->Add(bookKeepingClones[t].fHYNucleus);
+        bookKeepingClones[0].fHPhiNucleus->Add(bookKeepingClones[t].fHPhiNucleus);
+    }
+    fBookKeeping = bookKeepingClones[0];
+ 
+    // ── Merge per-thread histograms into thread 0's set ──────────────────────
+    float totalYield = 0.f, totalEvents = 0.f;
+    for (int t = 0; t < nThreads; ++t) {
+        totalYield += threadResults[t].first;
+        totalEvents += threadResults[t].second;
+    }
+    std::cout << "Total yield: " << totalYield << " from " << totalEvents << " events\n";
+    std::cout << "Average yield per event: " << (totalYield / totalEvents) << "\n";
+
+    const double yield = totalYield / totalEvents;
+    double yieldUncertainty = 0.0;
+    for (int t = 0; t < nThreads; ++t) {
+        for (const auto& w : threadYields[t]) {
+            const double diff = w - yield;
+            yieldUncertainty += diff * diff;
+            fBookKeeping.fHYieldDistributionNucleus->Fill(w);
+        }
+    }
+    yieldUncertainty = std::sqrt(yieldUncertainty / (totalEvents - 1));
+
+    fBookKeeping.fHYieldNucleus->SetBinContent(1, yield);
+    fBookKeeping.fHYieldUncertaintyNucleus->SetBinContent(1, yieldUncertainty / std::sqrt(totalEvents));
+    bookKeeping = fBookKeeping;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// samplePositions
-// ─────────────────────────────────────────────────────────────────────────────
 
-void CoalescenceEngine::samplePositions(std::vector<Particle>& particles,
-                                        SourceSampler&         sampler) const {
-    for (Particle& p : particles)
-        sampler.sample(p);
-}
+void CoalescenceEngine::generateEvent(Event& event, PositionSampler& positionSampler, MomentumSampler& momentumSampler, TRandom3& random) const {
+    const int nProtons = static_cast<int>(random.Poisson(fAverageNucleons));
+    const int nNeutrons = static_cast<int>(random.Poisson(fAverageNucleons));
 
-// ─────────────────────────────────────────────────────────────────────────────
-// boostToPRF
-//
-// Boosts the He3-proton pair into its rest frame and computes:
-//   q = relative 3-momentum  = (p_a - p_b) / 2   [GeV/c]  in PRF
-//   r = relative 3-position  = pos_a - pos_b      [fm]     in PRF
-//
-// The position boost uses the non-relativistic approximation for r,
-// consistent with the equal-time approximation used in the paper (Sec. 2).
-// ─────────────────────────────────────────────────────────────────────────────
+    event.protons = momentumSampler.sampleN(nProtons);
+    event.neutrons = momentumSampler.sampleN(nNeutrons);
 
-void CoalescenceEngine::boostToPRF(const Particle& a,
-                                   const Particle& b,
-                                   TVector3&       q_out,
-                                   TVector3&       r_out) const
-{
-    // 4-momentum of the pair (= Li4 4-momentum before binding correction)
-    TLorentzVector pPair = a.mom + b.mom;
-
-    // Beta vector of the pair centre-of-mass
-    TVector3 beta = pPair.BoostVector();
-
-    // Copy 4-momenta and boost into PRF
-    TLorentzVector momA = a.mom;
-    TLorentzVector momB = b.mom;
-    momA.Boost(-beta);
-    momB.Boost(-beta);
-
-    // Relative momentum in PRF: q = (p_a - p_b) / 2
-    q_out = (momA.Vect() - momB.Vect()) * 0.5;
-
-    // Relative position in the lab frame, then Lorentz-contract along boost
-    // Under the equal-time approximation we work with the 3D distance directly.
-    // We apply the same boost to position 4-vectors (x, y, z, 0).
-    TLorentzVector posA(a.pos, 0.);
-    TLorentzVector posB(b.pos, 0.);
-    posA.Boost(-beta);
-    posB.Boost(-beta);
-
-    r_out = posA.Vect() - posB.Vect();
-}
-
-void CoalescenceEngine::boostToPRF(const Particle& a,
-                                   const Particle& b,
-                                   TVector3&       q_out) const
-{
-    // 4-momentum of the pair (= Li4 4-momentum before binding correction)
-    TLorentzVector pPair = a.mom + b.mom;
-
-    // Beta vector of the pair centre-of-mass
-    TVector3 beta = pPair.BoostVector();
-
-    // Copy 4-momenta and boost into PRF
-    TLorentzVector momA = a.mom;
-    TLorentzVector momB = b.mom;
-    momA.Boost(-beta);
-    momB.Boost(-beta);
-
-    // Relative momentum in PRF: q = (p_a - p_b) / 2
-    q_out = (momA.Vect() - momB.Vect()) * 0.5;
-
-    // Relative position in the lab frame, then Lorentz-contract along boost
-    // Under the equal-time approximation we work with the 3D distance directly.
-    // We apply the same boost to position 4-vectors (x, y, z, 0).
-    TLorentzVector posA(a.pos, 0.);
-    TLorentzVector posB(b.pos, 0.);
-    posA.Boost(-beta);
-    posB.Boost(-beta);
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// makeLi4
-// ─────────────────────────────────────────────────────────────────────────────
-
-Particle CoalescenceEngine::makeLi4(const Particle& he3, const Particle& p) {
-    Particle li4;
-    li4.pdg = PDG::kLi4;
-    li4.mom = he3.mom + p.mom; // 4-momentum sum (binding energy neglected,
-                                // same semi-classical approximation as paper)
-    return li4;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// setSeed
-// ─────────────────────────────────────────────────────────────────────────────
-
-void CoalescenceEngine::setSeed(unsigned int seed) {
-    fRng.SetSeed(seed + 2);
+    positionSampler.sampleN(event.protons);
+    positionSampler.sampleN(event.neutrons); 
 }

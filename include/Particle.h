@@ -13,31 +13,20 @@ namespace PDG {
 
 struct Particle {
 
-    int    pdg;         // PDG code
+    int    pdg;         
     TLorentzVector mom; // 4-momentum (px, py, pz, E) in GeV/c and GeV
     TVector3       pos; // emission position (x, y, z) in fm
 
-    // --- convenience accessors ---
-
-    // transverse momentum
     double pT() const { return mom.Pt(); }
-
-    // rapidity
     double y() const { return mom.Rapidity(); }
-
-    // transverse mass: mt = sqrt(E^2 - pz^2)
-    // equivalently sqrt(m^2 + pT^2)
     double mT() const { return mom.Mt(); }
-
-    // rest mass
     double mass() const { return mom.M(); }
 
-    // --- constructors ---
-
     Particle() : pdg(0), mom(), pos() {}
-
     Particle(int pdg_, double px, double py, double pz, double E)
         : pdg(pdg_), mom(px, py, pz, E), pos(0., 0., 0.) {}
+    Particle(int pdg_, const TLorentzVector& mom_, const TVector3& pos_)
+        : pdg(pdg_), mom(mom_), pos(pos_) {}
 };
 
 #endif // PARTICLE_H

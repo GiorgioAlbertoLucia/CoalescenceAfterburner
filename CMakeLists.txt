@@ -45,36 +45,31 @@ message(STATUS "ROOT libs    : ${ROOT_LIBS}")
 
 # ── Source files ──────────────────────────────────────────────────────────────
 set(SOURCES
-    src/EventReader.cxx
     src/CoalescenceEngine.cxx
-    src/ToyMCEngine.cxx
-    src/CoalescenceEngineLi4.cxx
-    src/CoalescenceEngineHe4.cxx
     src/CoalescenceEngineHe3.cxx
-    src/IntegratorA4.cxx
-    src/IntegratorA3.cxx
-    src/ToyMCEngineA4.cxx
-    src/ToyMCEngineA3.cxx
+    src/ToyMcEngine.cxx
 )
 
 # ── Include directories ───────────────────────────────────────────────────────
 set(HEADERS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 # ── Library (optional: makes unit testing easier later) ───────────────────────
-add_library(li4_core STATIC ${SOURCES})
+add_library(coalescence_core STATIC ${SOURCES})
 
-target_include_directories(li4_core
+target_include_directories(coalescence_core
     PUBLIC
         ${HEADERS_DIR}
         ${ROOT_INCLUDE_DIRS}
+        /home/galucia/yaml-cpp-0.7/include
 )
 
-target_link_libraries(li4_core
+target_link_libraries(coalescence_core
     PUBLIC
         ${ROOT_LIBS}
+        /home/galucia/yaml-cpp-0.7/lib/libyaml-cpp.so
 )
 
-target_compile_options(li4_core
+target_compile_options(coalescence_core
     PRIVATE
         ${ROOT_CXX_FLAGS}
         -Wall
@@ -85,55 +80,28 @@ target_compile_options(li4_core
 )
 
 # ── Executable ────────────────────────────────────────────────────────────────
-add_executable(li4_coalescence main.cxx)
+add_executable(coalescence main.cxx)
 
-target_include_directories(li4_coalescence
+target_include_directories(coalescence
     PRIVATE
         ${HEADERS_DIR}
         ${ROOT_INCLUDE_DIRS}
 )
 
-target_link_libraries(li4_coalescence
+target_link_libraries(coalescence
     PRIVATE
-        li4_core
+        coalescence_core
         ${ROOT_LIBS}
 )
 
-# ── ToyMC executable ─────────────────────────────────────────────────────────
-add_executable(li4_toymc main_toymc.cxx)
-
-target_include_directories(li4_toymc
-    PRIVATE
-        ${HEADERS_DIR}
-        ${ROOT_INCLUDE_DIRS}
-)
-
-target_link_libraries(li4_toymc
-    PRIVATE
-        li4_core
-)
-
-# ── A=4 integrator executable ─────────────────────────────────────────────────
-add_executable(li4_a4 main_a4.cxx)
-
-
-target_include_directories(li4_a4 PRIVATE ${HEADERS_DIR} ${ROOT_INCLUDE_DIRS})
-target_link_libraries(li4_a4 PRIVATE li4_core)
-
-# ── A=3 integrator executable ─────────────────────────────────────────────────
-add_executable(he3_a3 main_a3.cxx)
-
-target_include_directories(he3_a3 PRIVATE ${HEADERS_DIR} ${ROOT_INCLUDE_DIRS})
-target_link_libraries(he3_a3 PRIVATE li4_core)
-
 # ── Install ───────────────────────────────────────────────────────────────────
-install(TARGETS li4_coalescence DESTINATION bin)
+install(TARGETS coalescence DESTINATION bin)
 install(DIRECTORY include/ DESTINATION include)
 
 # ── Summary ───────────────────────────────────────────────────────────────────
 message(STATUS "")
 message(STATUS "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-message(STATUS " li4_coalescence configuration")
+message(STATUS " coalescence configuration")
 message(STATUS "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 message(STATUS " Install prefix : ${CMAKE_INSTALL_PREFIX}")
 message(STATUS " Build type     : ${CMAKE_BUILD_TYPE}")
