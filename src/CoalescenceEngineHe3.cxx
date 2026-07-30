@@ -41,10 +41,7 @@ double CoalescenceEngineHe3::runEvent(Event& event, BookKeeping& bookKeeping, Ja
  
     std::vector<Particle> protons = event.protons;
     std::vector<Particle> neutrons = event.neutrons;
- 
-    // Loop over all 3 nucleon combinations (2p + 1n) and apply coalescence.
-    // All particles can coalesce any time (no "used" tracking), so we just sum the weights.
-    // Always use different protons (no self-pairs)
+
     for (std::size_t iP1 = 0; iP1 < protons.size(); ++iP1) {
         for (std::size_t iP2 = iP1 + 1; iP2 < protons.size(); ++iP2) {
             for (std::size_t iN1 = 0; iN1 < neutrons.size(); ++iN1) {
