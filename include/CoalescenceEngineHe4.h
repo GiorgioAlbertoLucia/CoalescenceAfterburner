@@ -1,16 +1,16 @@
-#ifndef COALESCENCEENGINEHE3_H
-#define COALESCENCEENGINEHE3_H
+#ifndef COALESCENCEENGINEHE4_H
+#define COALESCENCEENGINEHE4_H
 
 #include "CoalescenceEngine.h"
 #include "WignerDensity.h"
 
-class CoalescenceEngineHe3 : public CoalescenceEngine {
+class CoalescenceEngineHe4 : public CoalescenceEngine {
 public:
-    CoalescenceEngineHe3(Config& cfg) : CoalescenceEngine(cfg) { 
-        fMass = fMassHe3;
-        fWignerSinglePair = new GaussianWigner(fRadiusParameterHe3); 
+    CoalescenceEngineHe4(Config& cfg) : CoalescenceEngine(cfg) { 
+        fMass = fMassHe4;
+        fWignerSinglePair = new GaussianWigner(fRadiusParameterHe4); 
     }
-    ~CoalescenceEngineHe3() {
+    ~CoalescenceEngineHe4() {
         if (fWignerSinglePair) delete fWignerSinglePair;
         if (fWigner) delete fWigner;
     }
@@ -20,17 +20,17 @@ public:
     double runEvent(Event& event, BookKeeping& bookKeeping, JacobiTransform& jacobiTransform) const override;
 
 private:
-    constexpr static int fA = 3; // Number of nucleons in He3
+    constexpr static int fA = 4; // Number of nucleons in He4
     constexpr static int fNRelativeCoords = fA - 1; // Number of relative Jacobi coordinates
     constexpr static int fNJacobiCoords = fA; // Total number of Jacobi coordinates (including CoM)
-    constexpr static double fSA = 1/12.; // Spin-isospin factor for He3
+    constexpr static double fSA = 1/96.; // Spin-isospin factor for He4
 
-    constexpr static double fMassHe3 = 2.80839160743; // [GeV/c^2] He3 mass
-    constexpr static double fRadiusHe3 = 1.96; // [fm] He3 radius
-    constexpr static double fRadiusParameterHe3 = fRadiusHe3 * std::sqrt(2.); // [fm] He3 radius parameter for Gaussian wavefunction
+    constexpr static double fMassHe4 = 3.7273794066; // [GeV/c^2] He4 mass
+    constexpr static double fRadiusHe4 = 1.67; // [fm] He4 radius
+    constexpr static double fRadiusParameterHe4 = fRadiusHe4 * std::sqrt(2. * 2./3. * 4./3.); // [fm] He4 radius parameter for Gaussian wavefunction
 
     WignerDensity* fWigner;
     WignerDensity* fWignerSinglePair;
 };
 
-#endif // COALESCENCEENGINEHE3_H
+#endif // COALESCENCEENGINEHE4_H

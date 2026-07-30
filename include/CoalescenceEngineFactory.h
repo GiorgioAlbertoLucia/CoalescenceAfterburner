@@ -3,6 +3,7 @@
 
 #include "CoalescenceEngine.h"
 #include "CoalescenceEngineHe3.h"
+#include "CoalescenceEngineHe4.h"
 
 class CoalescenceEngineFactory {
 public:
@@ -12,6 +13,8 @@ public:
 CoalescenceEngine* CoalescenceEngineFactory::createCoalescenceEngine(Config& config) {
     if (config.nucleusName == "He3") {
         return new CoalescenceEngineHe3(config);
+    } else if (config.nucleusName == "He4") {
+        return new CoalescenceEngineHe4(config);
     } else {
         throw std::runtime_error("Unsupported nucleus type: " + config.nucleusName);
     }

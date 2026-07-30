@@ -47,6 +47,7 @@ message(STATUS "ROOT libs    : ${ROOT_LIBS}")
 set(SOURCES
     src/CoalescenceEngine.cxx
     src/CoalescenceEngineHe3.cxx
+    src/CoalescenceEngineHe4.cxx
     src/ToyMcEngine.cxx
 )
 

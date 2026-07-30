@@ -18,29 +18,41 @@ int main(int argc, char** argv) {
     //if (argc < 4) { printUsage(argv[0]); return 1; }
 
     ROOT::EnableThreadSafety();
-
+    
+    /* 
+    // He3 configuration
     Config config = {
         .nucleusName = "He3",
-        .nucleusRadius = 1.96 * std::sqrt(2.), // fm
         .sourceRadius = 4.6,   // fm
         .inputPtHistogramFile = "../input/spectra_0_10.root",
         .inputPtHistogramName = "hProton_0_10",
-        .outputFile = "../output/output.root",
+        .outputFile = "../output/output_he3.root",
+        .nEvents = 100,
+        .nThreads = 20,
+        .randomSeed = 42
+    };
+    */
+
+    // He4 configuration
+    Config config = {
+        .nucleusName = "He4",
+        .sourceRadius = 4.6,   // fm
+        .inputPtHistogramFile = "../input/spectra_0_10.root",
+        .inputPtHistogramName = "hProton_0_10",
+        .outputFile = "../output/output_he4.root",
         .nEvents = 100,
         .nThreads = 20,
         .randomSeed = 42
     };
 
     std::cout << "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-              << " Li4 A=4 integrator\n"
+              << " A integrator\n"
               << "━━━━━━━━━━━━━━━━━━━━━━════════════════════════════\n"
-              << " Input      : " << config.inputPtHistogramFile << "\n"
-              << " Output     : " << config.outputFile << "\n"
-              << " Centrality : " << config.inputPtHistogramFile << "\n"
-              << " Histogram  : " << config.inputPtHistogramName << "\n"
-              << " N samples  : " << config.nEvents << "\n"
-              << " Li4 radius : " << config.nucleusRadius << " fm\n"
-              << " Seed       : " << config.randomSeed << "\n"
+              << " Input spectrum : " << config.inputPtHistogramFile << "\n"
+              << " Histogram      : " << config.inputPtHistogramName << "\n"
+              << " Output         : " << config.outputFile << "\n"
+              << " N samples      : " << config.nEvents << "\n"
+              << " Seed           : " << config.randomSeed << "\n"
               << "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
 
     auto output = TFile::Open(config.outputFile.c_str(), "RECREATE");
