@@ -40,7 +40,7 @@ int main(int argc, char** argv) {
         .inputPtHistogramFile = "../input/spectra_0_10.root",
         .inputPtHistogramName = "hProton_0_10",
         .outputFile = "../output/output_he4.root",
-        .nEvents = 100,
+        .nEvents = 10000,
         .nThreads = 20,
         .randomSeed = 42
     };
