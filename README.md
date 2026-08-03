@@ -127,3 +127,8 @@ and He3 p_T spectra) into the histogram format expected as
   `main.cxx` before rebuilding; there is no command-line interface yet.
 - `CMakeLists.txt` has a hardcoded absolute path to a local `yaml-cpp`
   install — update it for your machine before building elsewhere.
+
+## How long does it take?
+
+This section is a small logbook to note how long it takes to run for specific nuclei and number of events
+- A=4 (He4): 4.38492e+06 s (221976 s at 20 core) for 10k events --> ~ 400 s/event
