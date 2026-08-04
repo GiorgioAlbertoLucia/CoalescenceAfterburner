@@ -7,13 +7,10 @@
 #include <string>
 #include <vector>
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Event
-//
-// Plain container for one collision event.
-// Holds only the species relevant for any A coalescence: protons and neutrons.
-// ─────────────────────────────────────────────────────────────────────────────
-
+/**
+ * Plain container for one collision event.
+ * Holds only the species relevant for any A coalescence: protons and neutrons.
+ */
 struct Event {
     int                  id;       // event number as read from file
     std::vector<Particle> protons; // PDG 2212
