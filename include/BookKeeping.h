@@ -17,10 +17,20 @@ struct BookKeeping {
     TH1D* fHYieldUncertaintyNucleus = nullptr;
     TH1D* fHYieldDistributionNucleus = nullptr;
 
+    TH1D* fHPositionNucleus = nullptr;
+    TH1D* fHPositionNucleons = nullptr;
+    TH1D* fHRelativePosition = nullptr;
+
+    TH1D* fHMultiplicityNucleons = nullptr;
+    TH1D* fHPtProtonOneRapidityUnit = nullptr;
+    TH1D* fHPtNucleusBeforeYcut = nullptr;
+
     void reset() {
         for (auto hist : {fHPtNucleon, fHYNucleon, fHPhiNucleon,
                       fHPtNucleus, fHYNucleus, fHPhiNucleus,
-                      fHYieldNucleus, fHYieldUncertaintyNucleus, fHYieldDistributionNucleus}) {
+                      fHYieldNucleus, fHYieldUncertaintyNucleus, fHYieldDistributionNucleus,
+                      fHPositionNucleus, fHPositionNucleons, fHRelativePosition, 
+                      fHMultiplicityNucleons, fHPtProtonOneRapidityUnit, fHPtNucleusBeforeYcut}) {
             if (hist) {
                 delete hist;
                 hist = nullptr;
@@ -40,6 +50,14 @@ struct BookKeeping {
         fHYieldNucleus = new TH1D(Form("hYieldNucleus_%d", index), "Sampled nucleus yield;Yield;Counts", 1, 0., 1.);
         fHYieldUncertaintyNucleus = new TH1D(Form("hYieldUncertaintyNucleus_%d", index), "Sampled nucleus ;Yield uncertainty;Counts", 1, 0., 1.);
         fHYieldDistributionNucleus = new TH1D(Form("hYieldDistributionNucleus_%d", index), "Sampled nucleus ;Yield distribution;Counts", 1000, 0., 0.001);
+
+        fHPositionNucleus = new TH1D(Form("hPositionNucleus_%d", index), "Sampled nucleus;r (fm);Counts", 400, 0., 40.);
+        fHPositionNucleons = new TH1D(Form("hPositionNucleons_%d", index), "Sampled nucleons;r (fm);Counts", 400, 0., 40.);
+        fHRelativePosition = new TH1D(Form("hRelativePosition_%d", index), "Sampled relative position;Relative r* (fm);Counts", 400, 0., 40.);
+        
+        fHMultiplicityNucleons = new TH1D(Form("hMultiplicationNucleons_%d", index), "Sampled nucleons;Multiplicity;Counts", 100, 0., 1000.);
+        fHPtProtonOneRapidityUnit = new TH1D(Form("hPtProtonOneRapidityUnit_%d", index), "Sampled proton;p_{T} (GeV/c);Counts", 100, 0., 10.);
+        fHPtNucleusBeforeYcut = new TH1D(Form("hPtNucleusBeforeYcut_%d", index), "Sampled nucleus before rapidity cut;p_{T} (GeV/c);Counts", 100, 0., 10.);
     }
 
     void write(TDirectory* out) {
@@ -49,7 +67,9 @@ struct BookKeeping {
         out->cd();
         for (auto hist : {fHPtNucleon, fHYNucleon, fHPhiNucleon,
                       fHPtNucleus, fHYNucleus, fHPhiNucleus,
-                      fHYieldNucleus, fHYieldUncertaintyNucleus, fHYieldDistributionNucleus}) {
+                      fHYieldNucleus, fHYieldUncertaintyNucleus, fHYieldDistributionNucleus,
+                      fHPositionNucleus, fHPositionNucleons, fHRelativePosition, 
+                      fHMultiplicityNucleons, fHPtProtonOneRapidityUnit, fHPtNucleusBeforeYcut}) {
             if (hist) {
                 hist->Write();
             }
