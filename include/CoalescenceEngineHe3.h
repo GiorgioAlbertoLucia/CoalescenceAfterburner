@@ -8,16 +8,21 @@ class CoalescenceEngineHe3 : public CoalescenceEngine {
 public:
     CoalescenceEngineHe3(Config& cfg) : CoalescenceEngine(cfg) { 
         fMass = fMassHe3;
-        fWignerSinglePair = new GaussianWigner(fRadiusParameterHe3); 
+        loadWignerDensity(cfg, fRadiusParameterHe3);
     }
     ~CoalescenceEngineHe3() {
-        if (fWignerSinglePair) delete fWignerSinglePair;
         if (fWigner) delete fWigner;
     }
+
     void workerRun(long long evStart, long long evEnd, int threadId, TH1D* hPtNucleonClone,
                    std::pair<float, float>& threadResult, std::vector<double>& threadYields, 
-                   BookKeeping& bookKeeping) const override;
-    double runEvent(Event& event, BookKeeping& bookKeeping, JacobiTransform& jacobiTransform) const override;
+                   const WignerDensity* wigner, BookKeeping& bookKeeping) const override;
+    void workerRunSource(long long evStart, long long evEnd, int threadId, TH1D* hPtNucleonClone,
+                        const WignerDensity* wigner, BookKeeping& bookKeeping) const override;
+
+    double runEvent(Event& event, BookKeeping& bookKeeping, JacobiTransform& jacobiTransform, const WignerDensity* wigner) const override;
+    void runEventAfterburner(Event& event, BookKeeping& bookKeeping, JacobiTransform& jacobiTransform, 
+                            const WignerDensity* wigner, TRandom3& random) const override;
 
 private:
     constexpr static int fA = 3; // Number of nucleons in He3
@@ -29,8 +34,8 @@ private:
     constexpr static double fRadiusHe3 = 1.96; // [fm] He3 radius
     constexpr static double fRadiusParameterHe3 = fRadiusHe3 * std::sqrt(2.); // [fm] He3 radius parameter for Gaussian wavefunction
 
+    WignerType fWignerType = WignerType::kSinglePair;
     WignerDensity* fWigner;
-    WignerDensity* fWignerSinglePair;
 };
 
 #endif // COALESCENCEENGINEHE3_H

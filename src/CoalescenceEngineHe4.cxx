@@ -3,7 +3,7 @@
 
 void CoalescenceEngineHe4::workerRun(long long evStart, long long evEnd, int threadId, TH1D* hPtNucleonClone,
                                      std::pair<float, float>& threadResult, std::vector<double>& threadYields,
-                                     BookKeeping& bookKeeping) const {
+                                     const WignerDensity* wigner, BookKeeping& bookKeeping) const {
 
     bookKeeping.init(threadId);
     PositionSampler positionSampler(fConfig.sourceRadius, fConfig.randomSeed + 1 * threadId);
@@ -24,7 +24,7 @@ void CoalescenceEngineHe4::workerRun(long long evStart, long long evEnd, int thr
         Event event;
         generateEvent(event, positionSampler, momentumSampler, random);
 
-        const float weight = runEvent(event, bookKeeping, jacobiTransform);
+        const float weight = runEvent(event, bookKeeping, jacobiTransform, wigner);
         yield += weight;
         threadYields.push_back(weight);
     }
@@ -34,7 +34,7 @@ void CoalescenceEngineHe4::workerRun(long long evStart, long long evEnd, int thr
               << " events, yield = " << yield << "\n";
 }
 
-double CoalescenceEngineHe4::runEvent(Event& event, BookKeeping& bookKeeping, JacobiTransform& jacobiTransform) const {
+double CoalescenceEngineHe4::runEvent(Event& event, BookKeeping& bookKeeping, JacobiTransform& jacobiTransform, const WignerDensity* wigner) const {
     
     float result = 0.f; 
     if (event.nProtons() < 2 || event.nNeutrons() < 2) return result;
@@ -71,8 +71,14 @@ double CoalescenceEngineHe4::runEvent(Event& event, BookKeeping& bookKeeping, Ja
                     
                     // Evaluate A-body Wigner density
                     double D = 1.;
-                    for (int j = 1; j < fA; ++j) {
-                        D *= fWignerSinglePair->evaluate(jacobiNucleons[j].mom.Vect(), jacobiNucleons[j].pos);
+                    if (fWignerType == WignerType::kSinglePair) {
+                        for (int j = 1; j < fA; ++j) {
+                            D *= wigner->evaluate(jacobiNucleons[j].mom.Vect(), jacobiNucleons[j].pos);
+                        }
+                    } else if (fWignerType == WignerType::kFull) {
+                        throw std::runtime_error("Full Wigner density is not implemented for CoalescenceEngineHe4");
+                    } else {
+                        throw std::runtime_error("Unknown WignerType in CoalescenceEngineHe4::runEvent");
                     }
                 
                     result += static_cast<float>(fSA * D);

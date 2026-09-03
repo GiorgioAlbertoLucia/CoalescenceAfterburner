@@ -33,6 +33,20 @@ CoalescenceEngine::CoalescenceEngine(Config& config)
     fAverageNucleons = fHPt->Integral() * (fYMax * 2.0);
 }
 
+void CoalescenceEngine::loadWignerDensity(const Config& config, const float radiusParameter) {
+    if (!config.wignerHistFile.empty() && !config.wignerHistName.empty()) {
+        fWigner = new HistogramWigner(config.wignerHistFile, config.wignerHistName);
+        if (config.nucleusName == "D") {
+            fWignerType = WignerType::kSinglePair;
+        } else {
+            fWignerType = WignerType::kFull;
+        }
+    } else {
+        fWigner = new GaussianWigner(radiusParameter);
+        fWignerType = WignerType::kSinglePair;
+    }
+}
+
 bool CoalescenceEngine::checkNucleusWithinRapidity(const std::vector<Particle>& nucleons, double yMin, double yMax) const
 {
     TLorentzVector pTot;
@@ -62,15 +76,18 @@ void CoalescenceEngine::run(BookKeeping& bookKeeping) {
     std::vector<std::vector<double>> threadYields(nThreads);
     std::vector<BookKeeping> bookKeepingClones(nThreads);
     std::vector<std::unique_ptr<TH1D>> hPtNucleonClones(nThreads);
+    std::vector<std::shared_ptr<WignerDensity>> wignerClones(nThreads);
     for (int t = 0; t < nThreads; ++t) {
         bookKeepingClones[t] = BookKeeping{};
         hPtNucleonClones[t] = std::unique_ptr<TH1D>(static_cast<TH1D*>(fHPt->Clone(Form("hInputPtNucleon_%d", t))));
+        wignerClones[t] = std::shared_ptr<WignerDensity>(fWigner->clone());
     }
  
     for (int t = 0; t < nThreads; ++t) {
         const long long evEnd = evStart + evPerThread + (t < remainder ? 1 : 0);
         workers.emplace_back(&CoalescenceEngine::workerRun, this, evStart, evEnd, t, hPtNucleonClones[t].get(), 
-                             std::ref(threadResults[t]), std::ref(threadYields[t]), std::ref(bookKeepingClones[t]));
+                             std::ref(threadResults[t]), std::ref(threadYields[t]), 
+                             wignerClones[t].get(), std::ref(bookKeepingClones[t]));
         evStart = evEnd;
     }
  
@@ -82,6 +99,11 @@ void CoalescenceEngine::run(BookKeeping& bookKeeping) {
         bookKeepingClones[0].fHPtNucleus->Add(bookKeepingClones[t].fHPtNucleus);
         bookKeepingClones[0].fHYNucleus->Add(bookKeepingClones[t].fHYNucleus);
         bookKeepingClones[0].fHPhiNucleus->Add(bookKeepingClones[t].fHPhiNucleus);
+        bookKeepingClones[0].fHPositionNucleus->Add(bookKeepingClones[t].fHPositionNucleus);
+        bookKeepingClones[0].fHPositionNucleons->Add(bookKeepingClones[t].fHPositionNucleons);
+        bookKeepingClones[0].fHRelativePosition->Add(bookKeepingClones[t].fHRelativePosition);
+        bookKeepingClones[0].fHPtProtonOneRapidityUnit->Add(bookKeepingClones[t].fHPtProtonOneRapidityUnit);
+        bookKeepingClones[0].fHMultiplicityNucleons->Add(bookKeepingClones[t].fHMultiplicityNucleons);
     }
     fBookKeeping = bookKeepingClones[0];
  
@@ -110,6 +132,57 @@ void CoalescenceEngine::run(BookKeeping& bookKeeping) {
     bookKeeping = fBookKeeping;
 }
 
+void CoalescenceEngine::runSource(BookKeeping& bookKeeping) {
+    
+    const int nThreads = fConfig.nThreads;
+    const int nEvents = fConfig.nEvents;
+    const long long evPerThread = nEvents / nThreads;
+    const long long remainder   = nEvents % nThreads;
+ 
+    std::vector<std::thread>                workers;
+    std::vector<std::pair<float, float>>    threadResults(nThreads);
+ 
+    long long evStart = 0;
+ 
+    // Pre-clone histograms on the main thread — one clone per worker.
+    // This avoids concurrent TH1::Clone() calls which are not thread-safe
+    // due to gROOT registration.
+    std::vector<std::vector<double>> threadYields(nThreads);
+    std::vector<BookKeeping> bookKeepingClones(nThreads);
+    std::vector<std::unique_ptr<TH1D>> hPtNucleonClones(nThreads);
+    std::vector<std::shared_ptr<WignerDensity>> wignerClones(nThreads);
+    for (int t = 0; t < nThreads; ++t) {
+        bookKeepingClones[t] = BookKeeping{};
+        hPtNucleonClones[t] = std::unique_ptr<TH1D>(static_cast<TH1D*>(fHPt->Clone(Form("hInputPtNucleon_%d", t))));
+        wignerClones[t] = std::shared_ptr<WignerDensity>(fWigner->clone());
+    }
+ 
+    for (int t = 0; t < nThreads; ++t) {
+        const long long evEnd = evStart + evPerThread + (t < remainder ? 1 : 0);
+        workers.emplace_back(&CoalescenceEngine::workerRunSource, this, evStart, evEnd, t, hPtNucleonClones[t].get(), 
+                             wignerClones[t].get(), std::ref(bookKeepingClones[t]));
+        evStart = evEnd;
+    }
+ 
+    for (auto& w : workers) w.join();
+    for (int t = 1; t < nThreads; ++t) {
+        bookKeepingClones[0].fHPtNucleon->Add(bookKeepingClones[t].fHPtNucleon);
+        bookKeepingClones[0].fHYNucleon->Add(bookKeepingClones[t].fHYNucleon);
+        bookKeepingClones[0].fHPhiNucleon->Add(bookKeepingClones[t].fHPhiNucleon);
+        bookKeepingClones[0].fHPtNucleus->Add(bookKeepingClones[t].fHPtNucleus);
+        bookKeepingClones[0].fHYNucleus->Add(bookKeepingClones[t].fHYNucleus);
+        bookKeepingClones[0].fHPhiNucleus->Add(bookKeepingClones[t].fHPhiNucleus);
+        bookKeepingClones[0].fHPositionNucleus->Add(bookKeepingClones[t].fHPositionNucleus);
+        bookKeepingClones[0].fHPositionNucleons->Add(bookKeepingClones[t].fHPositionNucleons);
+        bookKeepingClones[0].fHRelativePosition->Add(bookKeepingClones[t].fHRelativePosition);
+        bookKeepingClones[0].fHPtProtonOneRapidityUnit->Add(bookKeepingClones[t].fHPtProtonOneRapidityUnit);
+        bookKeepingClones[0].fHMultiplicityNucleons->Add(bookKeepingClones[t].fHMultiplicityNucleons);
+        bookKeepingClones[0].fHPtNucleusBeforeYcut->Add(bookKeepingClones[t].fHPtNucleusBeforeYcut);
+    }
+    fBookKeeping = bookKeepingClones[0];
+ 
+    bookKeeping = fBookKeeping;
+}
 
 void CoalescenceEngine::generateEvent(Event& event, PositionSampler& positionSampler, MomentumSampler& momentumSampler, TRandom3& random) const {
     const int nProtons = static_cast<int>(random.Poisson(fAverageNucleons));
