@@ -46,6 +46,7 @@ message(STATUS "ROOT libs    : ${ROOT_LIBS}")
 # ── Source files ──────────────────────────────────────────────────────────────
 set(SOURCES
     src/CoalescenceEngine.cxx
+    src/CoalescenceEngineD.cxx
     src/CoalescenceEngineHe3.cxx
     src/CoalescenceEngineHe4.cxx
     src/ToyMcEngine.cxx
@@ -81,22 +82,37 @@ target_compile_options(coalescence_core
 )
 
 # ── Executable ────────────────────────────────────────────────────────────────
-add_executable(coalescence main.cxx)
+add_executable(coalescence coalescence.cxx)
 
 target_include_directories(coalescence
-    PRIVATE
-        ${HEADERS_DIR}
-        ${ROOT_INCLUDE_DIRS}
+PRIVATE
+${HEADERS_DIR}
+${ROOT_INCLUDE_DIRS}
 )
 
 target_link_libraries(coalescence
-    PRIVATE
-        coalescence_core
-        ${ROOT_LIBS}
+PRIVATE
+coalescence_core
+${ROOT_LIBS}
+)
+
+add_executable(nucleon_nucleus_source nucleon_nucleus_source.cxx)
+
+target_include_directories(nucleon_nucleus_source
+PRIVATE
+${HEADERS_DIR}
+${ROOT_INCLUDE_DIRS}
+)
+
+target_link_libraries(nucleon_nucleus_source
+PRIVATE
+coalescence_core
+${ROOT_LIBS}
 )
 
 # ── Install ───────────────────────────────────────────────────────────────────
 install(TARGETS coalescence DESTINATION bin)
+install(TARGETS nucleon_nucleus_source DESTINATION bin)
 install(DIRECTORY include/ DESTINATION include)
 
 # ── Summary ───────────────────────────────────────────────────────────────────

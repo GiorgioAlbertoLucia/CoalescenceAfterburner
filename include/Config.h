@@ -17,6 +17,9 @@ struct Config {
     int nThreads = 1;
     int randomSeed = 42;
 
+    std::string wignerHistFile{};   // if non-empty, use HistogramWigner instead of GaussianWigner
+    std::string wignerHistName{};
+
     void loadFromFile(const std::string& filename) {
         YAML::Node config = YAML::LoadFile(filename);
 
@@ -37,6 +40,10 @@ struct Config {
         }
         if (config["randomSeed"]) {
             randomSeed = config["randomSeed"].as<int>();
+        }
+        if (config["wignerHistFile"]) {
+            wignerHistFile = config["wignerHistFile"].as<std::string>();
+            wignerHistName = config["wignerHistName"].as<std::string>();
         }
     }
 
