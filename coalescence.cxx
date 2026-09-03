@@ -66,7 +66,7 @@ int main(int argc, char** argv) {
     ToyMcEngine engine(output, config);
     
     stopwatch.Start();
-    engine.run(output);
+    engine.runCoalescence(output);
     stopwatch.Stop();
     
     std::cout << "Elapsed time: " << stopwatch.RealTime() << " s\n";
