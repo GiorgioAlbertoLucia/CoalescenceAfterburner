@@ -2,6 +2,7 @@
 #define COALESCENCEENGINEFACTORY_H
 
 #include "CoalescenceEngine.h"
+#include "CoalescenceEngineD.h"
 #include "CoalescenceEngineHe3.h"
 #include "CoalescenceEngineHe4.h"
 
@@ -11,7 +12,9 @@ public:
 };
 
 CoalescenceEngine* CoalescenceEngineFactory::createCoalescenceEngine(Config& config) {
-    if (config.nucleusName == "He3") {
+    if (config.nucleusName == "D") {
+        return new CoalescenceEngineD(config);
+    } else if (config.nucleusName == "He3") {
         return new CoalescenceEngineHe3(config);
     } else if (config.nucleusName == "He4") {
         return new CoalescenceEngineHe4(config);
