@@ -11,7 +11,7 @@ ToyMcEngine::ToyMcEngine(const TDirectory* outputFile, std::string& configFile):
     fConfig.loadFromFile(configFile);
 }
 
-void ToyMcEngine::run(TDirectory* out) {
+void ToyMcEngine::runCoalescence(TDirectory* out) {
     
     if (!out) {
         out = fOutputFile;
@@ -23,4 +23,18 @@ void ToyMcEngine::run(TDirectory* out) {
     engine->run(bookKeeping);
     
     bookKeeping.write(out);
+}
+
+void ToyMcEngine::runNucleusNucleonSource(TDirectory* out) {
+    
+    if (!out) {
+        out = fOutputFile;
+    }
+    BookKeeping bookKeeping;
+    
+    CoalescenceEngine* engine = CoalescenceEngineFactory::createCoalescenceEngine(fConfig);
+    engine->runSource(bookKeeping);
+    
+    bookKeeping.write(out);
+    
 }

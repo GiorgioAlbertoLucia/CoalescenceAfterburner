@@ -15,7 +15,8 @@ class ToyMcEngine {
 public:
     ToyMcEngine(const TDirectory* outputFile, std::string& configFile);
     ToyMcEngine(const TDirectory* outputFile, const Config& config) : fOutputFile(const_cast<TDirectory*>(outputFile)), fConfig(config) {};
-    void run(TDirectory* out = nullptr);
+    void runCoalescence(TDirectory* out = nullptr);
+    void runNucleusNucleonSource(TDirectory* out = nullptr);
 
 private:
 

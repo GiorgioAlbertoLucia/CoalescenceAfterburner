@@ -38,7 +38,7 @@ offset, merged at the end.
 ```
 include/    Header files (engine classes, samplers, physics utilities)
 src/        Implementation files
-main.cxx    Entry point / run configuration
+coalescence.cxx    Entry point / run configuration
 input/      Input spectra and a HEPData extraction helper script
 CMakeLists.txt
 ```
@@ -82,7 +82,7 @@ This produces the static library `libcoalescence_core.a` and the executable
 ## Running
 
 The run configuration (nucleus type, source radius, input spectrum, number of
-events/threads, random seed, output file) is currently set in `main.cxx` via
+events/threads, random seed, output file) is currently set in `coalescence.cxx` via
 a `Config` struct, e.g.:
 
 ```cpp
@@ -98,14 +98,14 @@ Config config = {
 };
 ```
 
-Edit `main.cxx` to switch nucleus/parameters and rebuild, then run:
+Edit `coalescence.cxx` to switch nucleus/parameters and rebuild, then run:
 
 ```bash
 ./coalescence
 ```
 
 `Config` also supports `loadFromFile(path)` to load these fields from a YAML
-file instead of hardcoding them in `main.cxx`.
+file instead of hardcoding them in `coalescebce.cxx`.
 
 ### Output
 
@@ -124,7 +124,7 @@ and He3 p_T spectra) into the histogram format expected as
 ## Notes / known limitations
 
 - Nucleus type and run parameters must currently be edited directly in
-  `main.cxx` before rebuilding; there is no command-line interface yet.
+  `coalescence.cxx` before rebuilding; there is no command-line interface yet.
 - `CMakeLists.txt` has a hardcoded absolute path to a local `yaml-cpp`
   install — update it for your machine before building elsewhere.
 

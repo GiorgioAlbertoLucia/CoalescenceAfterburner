@@ -1,11 +1,16 @@
 #ifndef WIGNERDENSITY_H
 #define WIGNERDENSITY_H
 
+#include "TH2.h"
+#include "TFile.h"
+#include "TString.h"
 #include "TVector3.h"
 
-#include <vector>
 #include <cmath>
+#include <memory>
 #include <stdexcept>
+#include <string>
+#include <vector>
 
 
 
@@ -154,6 +159,124 @@ public:
 
 private:
     GaussianWigner fWigner1; // two-body Gaussian Wigner density
+};
+
+/**
+ * Wigner density read from a tabulated TH2 (q, r) -> D.
+ *
+ * Use this when the internal wavefunction does not admit a closed-form
+ * Wigner density (Hulthen, Argonne v18, chi-EFT ... see Appendix A.2/A.3 and
+ * Fig. 10 of arXiv:2302.12696, where D(q,r) has a genuine q-r correlation
+ * that GaussianWigner's factorized ansatz cannot capture). The table must be
+ * produced externally (e.g. by numerically evaluating Eq. 13 on a grid of
+ * |q|, |r|) and stored as a ROOT TH2.
+ *
+ * Convention (must match how the table was produced):
+ *   x axis: |r|  relative position magnitude in the PRF [fm]
+ *   y axis: |q|  relative momentum magnitude in the PRF [GeV/c]
+ *   bin content: D(r, q), same normalisation as GaussianWigner
+ *                (D(0,0) -> 8 for a properly normalised wavefunction)
+ *
+ * Only the magnitudes of q and r are used -- isotropic/s-wave assumption,
+ * same as GaussianWigner and as Eq. 21 of the paper.
+ *
+ * Evaluation uses TH2::Interpolate (bilinear). A query outside the range
+ * spanned by the table's bin centers returns 0 rather than extrapolating --
+ * make sure the table's range comfortably covers what PositionSampler /
+ * MomentumSampler actually populate, or the tails will be silently cut.
+ */
+class HistogramWigner : public WignerDensity {
+public:
+
+    /**
+     * @param hDensity TH2 with x = r [fm], y = q [GeV/c], content = D(r, q).
+     *                 A private clone is taken; the caller keeps ownership
+     *                 of the original and may delete/close its file freely
+     *                 afterwards.
+     */
+    explicit HistogramWigner(const TH2* hDensity) {
+        if (!hDensity)
+            throw std::invalid_argument("HistogramWigner: hDensity is null");
+        init(hDensity);
+    }
+
+    /**
+     * @brief Load the Wigner-density table from a ROOT file.
+     * @param filePath path to the .root file
+     * @param histName name of the TH2 inside the file
+     */
+    HistogramWigner(const std::string& filePath, const std::string& histName) {
+        TFile* file = TFile::Open(filePath.c_str());
+        if (!file || file->IsZombie())
+            throw std::runtime_error("HistogramWigner: failed to open file: " + filePath);
+
+        TH2* h = dynamic_cast<TH2*>(file->Get(histName.c_str()));
+        if (!h) {
+            file->Close();
+            delete file;
+            throw std::runtime_error("HistogramWigner: histogram not found or not a TH2: " + histName);
+        }
+        init(h);
+        file->Close();
+        delete file;
+    }
+
+    ~HistogramWigner() override {
+        if (fHDensity) delete fHDensity;
+    }
+
+    // Owns a raw TH2* -- use clone() rather than copying.
+    HistogramWigner(const HistogramWigner&) = delete;
+    HistogramWigner& operator=(const HistogramWigner&) = delete;
+
+    /**
+     * @brief Evaluate the Wigner density at a given relative momentum and position.
+     * @param q_GeV relative momentum in the PRF [GeV/c]
+     * @param r_fm relative position in the PRF [fm]
+     * @return the Wigner density D(r, q)
+     */
+    double evaluate(const TVector3& q_GeV, const TVector3& r_fm) const override {
+
+        const double q = q_GeV.Mag();
+        const double r = r_fm.Mag();
+
+        if (q < fQMin || q > fQMax || r < fRMin || r > fRMax) {
+            return 0.0; // outside the tabulated range: treat as non-coalescing
+        }
+
+        const double D = fHDensity->Interpolate(r, q);
+        return D > 0. ? D : 0.0; // guard against small negative interpolation artefacts
+    }
+
+    double maxValue() const override { return fDMax; }
+
+    std::shared_ptr<WignerDensity> clone() const override {
+        return std::make_shared<HistogramWigner>(fHDensity);
+    }
+
+    const TH2* histogram() const { return fHDensity; }
+
+private:
+
+    void init(const TH2* hDensity) {
+        fHDensity = static_cast<TH2*>(hDensity->Clone());
+        fHDensity->SetDirectory(nullptr);
+
+        // Interpolate() is only well-defined within [first, last] bin centers
+        fRMin = fHDensity->GetXaxis()->GetBinCenter(1);
+        fRMax = fHDensity->GetXaxis()->GetBinCenter(fHDensity->GetNbinsX());
+        fQMin = fHDensity->GetYaxis()->GetBinCenter(1);
+        fQMax = fHDensity->GetYaxis()->GetBinCenter(fHDensity->GetNbinsY());
+
+        fDMax = fHDensity->GetMaximum();
+        if (fDMax <= 0.)
+            throw std::invalid_argument("HistogramWigner: histogram maximum is <= 0 -- is the table filled?");
+    }
+
+    TH2*   fHDensity{nullptr};
+    double fQMin{0.}, fQMax{0.};
+    double fRMin{0.}, fRMax{0.};
+    double fDMax{0.};
 };
 
 #endif // WIGNERDENSITY_H
